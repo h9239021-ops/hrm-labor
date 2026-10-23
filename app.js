@@ -23,6 +23,7 @@
       desc: "근로감독 이력·적발 사항·재적발 위험을 누적 관리합니다.",
       color: "var(--cat-insp)", bg: "var(--cat-insp-bg)",
       legacyUrl: "https://h9239021-ops.github.io/labor-compliance-ledger/",
+      module: "InspectionLedger", // 기존 관리대장을 그대로 옮긴 모듈(inspection.js) — 자체 탭을 가짐
       tabs: [ { id: "overview", name: "개요" } ]
     },
     {
@@ -160,15 +161,23 @@
     var parts = (location.hash || "").replace(/^#\/?/, "").split("/").filter(Boolean);
     return { section: parts[0] || "", tab: parts[1] || "" };
   }
+  function unmountModules(){
+    CATEGORIES.forEach(function(c){ if (c.module && window[c.module]) window[c.module].unmount(); });
+  }
   function route(){
     if (!currentUser) return;
+    unmountModules();
     var r = parseHash();
     if (r.section === "settings") return renderShell("settings", renderSettings());
     var cat = findCat(r.section);
     if (cat){
       var tab = null;
       for (var i = 0; i < cat.tabs.length; i++) if (cat.tabs[i].id === r.tab) tab = cat.tabs[i];
-      return renderShell(cat.id, renderCategory(cat, tab || cat.tabs[0]));
+      renderShell(cat.id, renderCategory(cat, tab || cat.tabs[0]));
+      if (cat.module && window[cat.module]){
+        window[cat.module].mount(document.getElementById("insp-root"), { sb: sb, user: currentUser });
+      }
+      return;
     }
     renderShell("", renderHome());
   }
@@ -205,7 +214,7 @@
       return '<a class="svc" href="#/' + c.id + '" style="--c:' + c.color + ';--cbg:' + c.bg + '">' +
           '<div class="svc-icon">' + ICONS[c.id] + '</div>' +
           '<div><h2>' + esc(c.name) + '</h2><p>' + esc(c.desc) + '</p></div>' +
-          '<div class="svc-foot"><span>바로가기 →</span><span class="badge">구성 중</span></div>' +
+          '<div class="svc-foot"><span>바로가기 →</span>' + (c.module ? '' : '<span class="badge">구성 중</span>') + '</div>' +
         '</a>';
     }).join("");
     return '<section class="hero"><div>' +
@@ -226,12 +235,13 @@
       '<div class="cat-head"><div class="svc-icon">' + ICONS[cat.id] + '</div>' +
         '<div><h1>' + esc(cat.name) + '</h1><p class="hint">' + esc(cat.desc) + '</p></div></div>' +
       subtabs +
+      (cat.module ? '<div id="insp-root"></div>' :
       '<section class="panel empty">' +
         '<div class="svc-icon">' + ICONS[cat.id] + '</div>' +
         '<h2>세부 기능을 구성하고 있습니다</h2>' +
         '<p class="hint">이 카테고리의 화면은 순차적으로 새로 만들어질 예정입니다. 그 전까지는 기존 페이지를 이용해주세요.</p>' +
         '<div class="actions"><a class="btn" href="' + esc(cat.legacyUrl) + '" target="_blank" rel="noopener">기존 페이지 열기 ↗</a></div>' +
-      '</section>' +
+      '</section>') +
     '</div>';
   }
 
